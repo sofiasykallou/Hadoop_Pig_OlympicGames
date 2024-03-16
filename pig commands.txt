@@ -1,0 +1,86 @@
+To run Hadoop:
+	start-all.sh
+	stop-all.sh 
+	hadoop-3.3.5/bin/hdfs namenode -format
+
+
+
+To remove user dir and create/upload athlete csv:
+	hadoop fs -rm -r /user
+	hadoop fs -rm -r /tmp
+	hadoop fs -mkdir /user
+	hadoop fs -mkdir /user/stavroula-big-data
+	hadoop fs -put /home/stavroulap/Big_data_Scripts/athlete_events.csv /user/stavrouLa-big-data
+
+
+Maybe important DEFINEs
+	REGISTER ./pig-0.17.0/contrib/piggybank/java/piggybank.jar;
+	REGISTER ./pig-0.17.0/lib/piggybank.jar;
+	DEFINE coalesce org.apache.pig.piggybank.evaluation.string.Coalesce;
+	pig -classpath ./pig-0.17.0/lib/piggybank.jar
+	
+	
+To load csv and make ETL:
+	#load csv loader and load file
+		DEFINE CsvLoader org.apache.pig.piggybank.storage.CSVLoader();
+		athlete_data = LOAD '/user/stavrouLa-big-data/athlete_events.csv' USING CsvLoader() AS (ID:chararray, Name:chararray, Sex:chararray, Age:int, Height:double, Weight:double, Team:chararray, NOC:chararray, Games:chararray, Year:int, Season:chararray, City:chararray, Sport:chararray, Event:chararray, Medal:chararray);
+
+
+	# make a sample for easy computations
+		my_data_limit = LIMIT athlete_data 3;   OR my_data_limit = SAMPLE athlete_data 0.01;
+		DUMP my_data_limit;
+
+
+
+	# clean TEAM column
+		athlete_data_cleaned = FOREACH athlete_data GENERATE ID, Name, Sex, Age, Height, Weight, REGEX_EXTRACT(Team, '^[^-,"/#]*', 0) AS Team, NOC, Games, Year, Season, City, Sport, Event, Medal;
+		team_list = foreach athlete_data_cleaned GENERATE $6;
+		unique_teams = DISTINCT team_list;
+		team_count = FOREACH (GROUP unique_teams ALL) GENERATE COUNT(unique_teams);
+		DUMP team_count; -- 937 vs 933
+
+		
+
+		
+		athlete_data_cleaned_1 = FOREACH athlete_data_cleaned GENERATE ID, Name, Sex, Age, Height, Weight, REPLACE(Team, '(I|IV|VII|XII|II|VIII|III|V|X|XI|VI|IX|XIII)$', '') AS Team, NOC, Games, Year, Season, City, Sport, Event, Medal;		
+		team_list_1 = foreach athlete_data_cleaned_1 GENERATE $6;
+		unique_teams_1 = DISTINCT team_list_1;
+		team_count_1 = FOREACH (GROUP unique_teams_1 ALL) GENERATE COUNT(unique_teams_1);
+		DUMP team_count_1; -- 914 vs 899 
+		
+		
+		[old - doesnt work for some reason]
+		athlete_data_cleaned = FOREACH athlete_data GENERATE ID, Name, Sex, Age, Height, Weight, TRIM(REGEX_EXTRACT(Team, '([-",/#]+)', 1)) AS Team, NOC, Games, Year, Season, City, Sport, Event, Medal;
+		team_list = foreach athlete_data_cleaned GENERATE $6;
+		unique_teams = DISTINCT team_list;
+		team_count = FOREACH (GROUP unique_teams ALL) GENERATE COUNT(unique_teams);
+		DUMP team_count; -- 934 vs 933
+
+
+
+	# replace null values with not specified value as string
+		athlete_data_replaced = FOREACH athlete_data GENERATE ID, Name, Sex, COALESCE(Age, 'Not Specified') as Age, COALESCE(Height, 'Not Specified') as Height, COALESCE(Weight, 'Not Specified') as Weight, Team, NOC, Games, Year, Season, City, Sport, Event, COALESCE(Medal, 'Not Specified') as Medal;
+
+	Equivalent
+		athlete_data_replaced = FOREACH athlete_data GENERATE ID, Name, Sex, (Age is null ? 'Not Specified' : (chararray)Age) as Age,(Height is null ? 'Not Specified' : (chararray)Height) as Height, (Weight is null ? 'Not Specified' : (chararray)Weight) as Weight, Team, NOC, Games, Year, Season, City, Sport, Event, (Medal is null ? 'Not Specified' : Medal) as Medal;
+
+
+
+
+
+	# remove duplicated values
+		athlete_data_distinct = DISTINCT athlete_data_replaced;
+
+		-- Count rows before deduplication
+		athlete_data_count_before = FOREACH (GROUP athlete_data_replaced ALL) GEcl = NERATE COUNT(athlete_data_replaced);
+
+		-- Count rows after deduplication
+		athlete_data_count_after = FOREACH (GROUP athlete_data_distinct ALL) GENERATE COUNT(athlete_data_distinct);
+
+		-- Display the counts
+		DUMP athlete_data_count_before; --271117 vs 271116
+		DUMP athlete_data_count_after;  --269729 vs 269728
+		
+		
+	# Store table in hdfs
+		STORE athlete_data_distinct INTO '/user/stavrouLa-big-data/output' USING PigStorage (',');

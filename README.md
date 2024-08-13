@@ -17,14 +17,9 @@ This mode is recommended for debugging and simplifies the installation process, 
 
 ### Installation Guide
 
-1. **Version Selection**: Choose a Hadoop version compatible with your system's specifications. The latest version is not always necessary.
-2. **Installation Instructions**: Follow the detailed installation steps on the [official Hadoop website](https://hadoop.apache.org/), tailored to your machine's setup.
+1. **Installation Instructions**: Follow the detailed installation steps on the [official Hadoop website](https://hadoop.apache.org/).
 
 ## Data Source
 
-The project utilizes Olympic Games data from [www.sports-reference.com](http://www.sports-reference.com). Ensure you have access to this data through the provided website or the course's eClass platform.
+The project utilizes Olympic Games data from [www.sports-reference.com](http://www.sports-reference.com).
 
-## Getting Started
-
-1. Install Pig and Hadoop as described, focusing on compatibility with your system.
-2. Access and familiarize yourself with the Olympic Games data structure and contents.
